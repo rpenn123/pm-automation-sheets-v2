@@ -2,50 +2,58 @@
 
 A robust, scalable migration of your Notion-based project pipeline into Google Sheets, with strict phase-gate validation, automatic status reverts, structured error logging, and Slack + Salesforce integrations via Zapier.
 
-This repo gives you:
-- A single Google Sheet with 5 tabs: `Project Pipeline`, `Tasks`, `Upcoming`, `Framing`, `Ops Inbox`.
-- Data validation for every select and multi-select field using canonical lists.
-- Rollups and analytics via formulas to replace Notion relations and rollups.
-- A powerful `onEdit` Apps Script that enforces gates, reverts invalid status changes, annotates the cell with a block reason, logs the event to `Ops Inbox`, and stamps first-time transitions.
-- Read-only views for `Upcoming` and `Framing` populated by `QUERY` formulas from the pipeline.
-- An Executive & Ops Dashboard built from `QUERY`, `COUNTIFS`, `SUMIFS`, `SPARKLINE`, and native charts.
-- Zapier workflows to post Slack updates and sync from Salesforce Closed-Won with idempotency.
+This solution has been refactored for improved performance, maintainability, and ease of setup.
 
-> Keep option strings identical across tabs and Zaps. Changing an option requires updating data validation and any filter/logic that references it.
+## Key Features
 
----
-
-## 1) Make the Google Sheet
-
-1) Create a new Google Sheet named **Project Pipeline**.
-
-2) Create these tabs (exact names):
-   - `Project Pipeline`
-   - `Tasks`
-   - `Upcoming`
-   - `Framing`
-   - `Ops Inbox`
-   - `Lists` (helper tab for dropdown options)
-
-3) On `Lists`, paste the canonical lists into separate columns with these headers in row 1:
-   - **Project Status**: `Scheduled, Permitting, Done, Canceled, On Hold, Stuck, Inspections, Overdue`
-   - **Permits**: `Not Started, In Progress, Approved, N/A, Resubmission`
-   - **Task Status**: `Todo, In Progress, Blocked, Waiting External, Skipped, Done`
-   - **Task Phase**: `P1 Kickoff, P2 Plans & Permits, P3 Construction, P4 Installation, P5 Closeout`
-   - **Probability**: `100, 90, 75, 50, 25`
-   - **Inspection Performed By**: `By Mobility123, DCA, 3rd party`
-   - **Equipment** (multi-select): `Duo Alta, Trio Alta, Multilift, V-1504, Eclipse, Bathroom, Trio Thru, Duo Thru, Trio Classic, Telecab, Stairlift, VPL-3200, Vuelift, Trio Alta Plus, Symmetry - SHE, Cibes A5000, Ramp, Symmetry - VPL, IPL, Cibes Primo`
-   - **Architect**: `Sidrane, KVD, Ingrid, Mclaughlin, CBO, Other / Unknown`
-
-4) Create **named ranges** for each list. Example: select the column of values under `Project Status` and set Named range = `List_ProjectStatus`. Do the same for all lists.
+- **Automated Phase-Gate Enforcement**: A powerful Apps Script enforces business rules, reverts invalid status changes, adds explanatory notes to cells, and logs issues to a dedicated `Ops Inbox`.
+- **Automated Setup**: A custom menu (`Mobility123 PM`) automates the most error-prone parts of the setup, creating required sheets and installing the necessary script trigger.
+- **Dynamic & Robust**: The script is resilient to changes in column order and gracefully ignores routine edits from Zapier to prevent unnecessary processing.
+- **Configurable Admins**: A simple UI allows you to define which users can access the "override" functionality without needing to edit any code.
+- **Comprehensive Views**: `QUERY`-based tabs provide read-only views for `Upcoming` and `Framing` projects, and a powerful dashboard provides high-level KPIs and analytics.
+- **External Integrations**: A detailed guide (`docs/zapier_guide.md`) explains how to connect the sheet to Slack and Salesforce.
 
 ---
 
-## 2) Column schemas
+## 1. Setup Instructions
 
-Create columns in each tab exactly as listed here and keep this order. Do not insert extra columns in the middle later. Use **Data validation** to bind each select to the proper named range. Multi-selects in Sheets are entered as comma-separated text.
+The setup process has been significantly simplified.
 
-### 2.1 Project Pipeline (writable)
+### Step 1: Create the Google Sheet & Install the Script
+1.  Create a new Google Sheet. You can name it whatever you like (e.g., "Project Pipeline").
+2.  Open the script editor by going to **Extensions → Apps Script**.
+3.  Copy the entire contents of `src/main.gs` from this repository and paste it into the script editor, replacing any existing code.
+4.  Save the script project (File → Save).
+
+### Step 2: Run the Automated Setup
+1.  Refresh the Google Sheet in your browser. After a moment, a new menu named **Mobility123 PM** should appear.
+2.  Click **Mobility123 PM → Verify & Setup Sheet**.
+3.  The script will check for required sheets and install the necessary `onEdit` trigger. It will show you a report of the actions it took.
+4.  You will be asked to authorize the script. Please grant it the required permissions.
+
+### Step 3: Populate Sheet Content
+1.  The setup script will have created a `Lists` tab. Go to this tab and paste in the canonical lists for your dropdown menus (Project Status, Permits, etc.), with each list in its own column and a header in the first row.
+2.  Go to the `Project Pipeline` and `Tasks` tabs and paste in the column headers exactly as defined in the **Column Schemas** section below.
+3.  Follow the instructions in `formulas/sheet_formulas.md` and `dashboard/dashboard_queries.md` to paste the required formulas into the sheet.
+4.  Set up your data validation and named ranges. For example, select the values under the `Project Status` header in the `Lists` sheet, go to **Data → Named ranges**, and name it `List_ProjectStatus`. Then, in the `Project Pipeline` sheet, select the `Project Status` column, go to **Data → Data validation**, and set the criteria to be "Dropdown (from a range)" with the value `List_ProjectStatus`. Repeat for all dropdowns.
+
+---
+
+## 2. Configuration
+
+### Admin Users
+The "Override: Allow Advance" checkbox can only be used by authorized administrators. To configure who is an admin:
+1.  Click **Mobility123 PM → Configure Admins**.
+2.  Enter a comma-separated list of user email addresses in the prompt.
+3.  Click OK. The list is saved securely and can be updated anytime.
+
+---
+
+## 3. Column Schemas
+
+Create columns in each tab exactly as listed here. While the script is resilient to column reordering, the sheet-level formulas are not. Keep the columns in this order.
+
+### 3.1 Project Pipeline (writable)
 ```
 A: Name
 B: SFID
@@ -126,7 +134,7 @@ BX: blocked_hours (optional formula)
 BY: staleness_flag (optional formula)
 ```
 
-### 2.2 Tasks (subtasks)
+### 3.2 Tasks (subtasks)
 ```
 A: Name
 B: Project SFID
@@ -142,13 +150,13 @@ K: Counts toward completion (formula)
 L: Completed % (formula)
 ```
 
-### 2.3 Upcoming (read-only via QUERY in A1)
+### 3.3 Upcoming (read-only via QUERY in A1)
 Columns are generated by query. No manual entry.
 
-### 2.4 Framing (read-only via QUERY in A1)
+### 3.4 Framing (read-only via QUERY in A1)
 Columns are generated by query. No manual entry.
 
-### 2.5 Ops Inbox
+### 3.5 Ops Inbox
 ```
 A: Name
 B: Source SFID
@@ -160,79 +168,26 @@ F: Timestamp (datetime)
 
 ---
 
-## 3) Add formulas
+## 4. Zapier Integrations
 
-Open `formulas/sheet_formulas.md` from this repo and paste the formulas into the correct columns. That file is organized by sheet and column. Do not modify formula columns by hand later.
-
----
-
-## 4) Protect critical ranges
-
-In Google Sheets: Data → Protect sheets and ranges.
-- Protect all formula columns in `Project Pipeline` and `Tasks`.
-- Protect entire `Upcoming` and `Framing` tabs since they are view-only.
-- Optionally protect `Ops Inbox` except for Ops leads.
+Open `docs/zapier_guide.md`. It covers the detailed steps for connecting Google Sheets to Slack and Salesforce.
 
 ---
 
-## 5) Install the Apps Script
-
-1) Extensions → Apps Script.
-2) Replace all code with the contents of `src/main.gs`.
-3) Save. File → Project properties → set script timezone to your business timezone.
-4) Triggers (alarm-clock icon on left) → Add Trigger:
-   - Function: `onEditHandler`
-   - Deployment: Head
-   - Event source: From spreadsheet
-   - Event type: On edit
-5) Review authorization and approve.
-
-> Why installable onEdit: it gives you more consistent `e.oldValue` for single cell edits and avoids simple-trigger limits.
-
----
-
-## 6) Build read-only views
-
-Open `dashboard/dashboard_queries.md` and paste the `QUERY` for `Upcoming` into `Upcoming!A1`, and the `QUERY` for `Framing` into `Framing!A1`. These are live views sourced from `Project Pipeline`.
-
----
-
-## 7) Create the Dashboard
-
-Create a new tab named `Dashboard`. Paste the KPI and table queries from `dashboard/dashboard_queries.md`. Add native charts as noted in that file.
-
----
-
-## 8) Zapier integrations
-
-Open `docs/zapier_guide.md`. It covers:
-- Google Sheets triggers using “New or Updated Spreadsheet Row” with a Last Updated helper.
-- Slack posting with idempotency using `last_*_notified_ts`.
-- Salesforce Closed-Won sync with “Find or Create by external_id”.
-- Escalation and blocked notifications.
-
-Follow every step and test each Zap with a sample row.
-
----
-
-## 9) Governance
+## 5. Governance
 
 - Edit only in `Project Pipeline` and `Tasks`.
 - `Upcoming` and `Framing` are read-only.
-- Admin-only override window is 24 hours. The script stamps and clears it as required.
-- Keep strings identical to the canonical options on `Lists`. If you must change options, update data validation and any formula that references that option.
+- The admin override window is 24 hours. The script manages this automatically.
+- Keep dropdown option strings identical to the canonical options on the `Lists` sheet.
 
 ---
 
-## 10) Test plan
+## 6. Test Plan
 
-- Try to move a row to `Scheduled` without permits approved or missing artifacts. The script should:
-  - Revert the status.
-  - Note the cell with the reason.
-  - Append an issue to `Ops Inbox`.
-- Mark `Permits` to `Approved`. The script stamps `ts_permits_approved` if empty.
-- Move to `Permitting`. The script stamps `ts_entered_permitting` if empty.
-- First valid `Scheduled` sets `ts_first_scheduled`. First valid `Done` sets `ts_marked_done`.
-- Payment guard. If `Final payment received` is unchecked, attempting `Done` should revert.
-- Duplicate SFID. Typing a duplicate SFID flags `Duplicate SFID` and logs a duplicate issue.
-- Zapier. Confirm Slack messages only post once per event per row.
+- Try to move a row to `Scheduled` without permits approved or missing artifacts. The script should revert the status and add a note to the cell.
+- Mark `Permits` to `Approved`. The script should stamp `ts_permits_approved`.
+- Move to `Permitting`. The script should stamp `ts_entered_permitting`.
+- Use the "Override: Allow Advance" checkbox as a non-admin (it should fail) and then as an admin (it should work).
+- Check that payment guards and duplicate SFID detection are working.
+- Confirm Zapier messages only post once per event per row.
