@@ -223,6 +223,15 @@ function handlePipelineEdit_(e) {
   const state = new RowState(headerMap, range.getValues()[0], range.getNotes()[0]);
   const colName = state.getHeader(col);
 
+  // --- New Row Detection ---
+  // If last_validated_ts is empty, this is the first time the script is running on this row.
+  if (!state.getValue('last_validated_ts')) {
+    const now = new Date();
+    state.setValue('Created Date', now);
+    state.setValue('Created Month', Utilities.formatDate(now, CFG.TZ, 'yyyy-MM'));
+  }
+  // --- End New Row Detection ---
+
   if (CFG.ZAPIER_ONLY_COLUMNS.includes(colName)) {
     return;
   }
@@ -233,6 +242,7 @@ function handlePipelineEdit_(e) {
 
   if (colName === 'Project Status') {
     enforceStatusChange_(e, state);
+    paymentGuard_(e, state);
   }
 
   if (state.getValue('Project Status') === 'Permitting') {
@@ -245,10 +255,6 @@ function handlePipelineEdit_(e) {
 
   if (colName === 'Override: Allow Advance') {
     handleOverrideToggle_(e, state);
-  }
-
-  if (colName === 'Final payment received' || colName === 'Project Status') {
-    paymentGuard_(e, state);
   }
 
   state.setValue('last_validated_ts', new Date());
