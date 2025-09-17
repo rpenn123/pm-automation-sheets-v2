@@ -33,7 +33,7 @@ const SHEET_SETUP_CONFIG = {
       "can_advance_to_Permitting", "can_advance_to_Scheduled",
       "can_advance_to_Inspections", "can_advance_to_Done",
       "Advance block reason", "last_edit_relative", "escalate_ready",
-      "Month (Deadline)", "Created Month", "days_in_permitting",
+      "Month (Deadline)", "Created Month", "Created Date", "days_in_permitting",
       "days_to_schedule", "lead_time_days", "Revenue Weighted",
       "docs_required_but_missing", "aging_days_since_edit",
       "is_active_backlog", "blocked_hours", "staleness_flag"
@@ -100,8 +100,6 @@ const SHEET_SETUP_CONFIG = {
       'escalate_ready': `=MAP(AC2:AC, LAMBDA(ac, IF(ac="", "", AND(NOT(ISBLANK(ac)),(NOW()-ac)>=1))))`,
       // Extracts the month (yyyy-mm) from the Deadline date (R).
       'Month (Deadline)': `=MAP(R2:R, LAMBDA(r, IF(r="", "", TEXT(r,"yyyy-mm"))))`,
-      // NOTE: This formula dynamically inserts the current month, which might not be the intended "created" month.
-      'Created Month': `=MAP(A2:A, LAMBDA(a, IF(a="","",TEXT(NOW(),"yyyy-mm"))))`,
       // Calculates the number of days a project was in the permitting phase.
       'days_in_permitting': `=MAP(S2:S, T2:T, LAMBDA(s, t, IF(OR(s="", t=""), "", s-t)))`,
       // Calculates the number of days from permit approval to first scheduling.
