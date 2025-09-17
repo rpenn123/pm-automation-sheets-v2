@@ -55,86 +55,146 @@ const SHEET_SETUP_CONFIG = {
    * ArrayFormulas to be applied to entire columns. They are written for row 2
    * and will be wrapped in a check to prevent applying to empty rows.
    * The key is the column header.
+   *
+   * DEVELOPER NOTE: Many formulas use NOW() or TODAY(). These are volatile functions
+   * that recalculate on every sheet edit, which can impact performance. For better
+   * performance, consider creating a dedicated cell (e.g., on a settings sheet)
+   * that is updated with the current time by a time-based script trigger (e.g.,
+   * every minute or hour). Formulas can then reference this cell instead of calling
+   * NOW() or TODAY() directly.
    */
   ARRAY_FORMULAS: {
     'Project Pipeline': {
+      // Generates a clickable Slack channel URL from the Channel ID (C) and Team ID (G).
       'Slack Channel URL': `=MAP(C2:C, G2:G, LAMBDA(id, team, IF(OR(id="", team=""), "", "https://app.slack.com/client/"&team&"/"&id)))`,
+      // Calculates the Gross Margin Percentage from Revenue (AS) and COGS (AT).
       'Gross Margin %': `=MAP(AS2:AS, AT2:AT, LAMBDA(rev, cogs, IF(rev="", "", IFERROR(ROUND((rev-cogs)/rev*100)))))`,
+      // Determines the Monday of the week for a given Deadline date (R).
       'Week of (Monday)': `=MAP(R2:R, LAMBDA(deadline, IF(deadline="", "", deadline-WEEKDAY(deadline,2)+1)))`,
+      // Counts open tasks for a project by matching the Project SFID (B) in the 'Tasks' sheet.
       'open_tasks_count': `=MAP(B2:B, LAMBDA(sfid, IF(sfid="", "", COUNTIFS(Tasks!B:B, sfid, Tasks!D:D, "<>Done"))))`,
+      // Counts overdue tasks for a project, where the due date (G) in 'Tasks' is in the past.
       'overdue_tasks_count': `=MAP(B2:B, LAMBDA(sfid, IF(sfid="", "", COUNTIFS(Tasks!B:B, sfid, Tasks!D:D, "<>Done", Tasks!G:G, "<"&TODAY()))))`,
+      // Counts completed tasks for a project.
       'completed_tasks_count': `=MAP(B2:B, LAMBDA(sfid, IF(sfid="", "", COUNTIFS(Tasks!B:B, sfid, Tasks!D:D, "Done"))))`,
+      // Sums the 'Effort hours' for tasks that count towards project completion (K).
       'total_blocking_tasks': `=MAP(B2:B, LAMBDA(sfid, IF(sfid="", "", SUMIFS(Tasks!K:K, Tasks!B:B, sfid))))`,
+      // Sums the 'Effort hours' for completed tasks that count towards project completion.
       'completed_blocking_tasks': `=MAP(B2:B, LAMBDA(sfid, IF(sfid="", "", SUMIFS(Tasks!K:K, Tasks!B:B, sfid, Tasks!D:D, "Done"))))`,
+      // Calculates the percentage of task progress based on blocking tasks.
       'task_progress_%': `=MAP(BD2:BD, BE2:BE, LAMBDA(total, completed, IF(total="", "", IF(total=0, 0, ROUND(100*completed/total)))))`,
+      // Checks if a project can be advanced globally. Requires a deadline (R), Slack channel (C), no blocking tasks (BB), and not being overridden (AO).
       'can_advance_globally': `=MAP(R2:R, C2:C, BB2:BB, AO2:AO, LAMBDA(r, c, bb, ao, IF(r="", "", AND(NOT(ISBLANK(r)),NOT(ISBLANK(c)),bb=0,NOT(ao)))))`,
+      // Checks if a project can advance to the 'Permitting' stage.
       'can_advance_to_Permitting': `=MAP(Y2:Y, AI2:AI, BF2:BF, LAMBDA(y, ai, bf, IF(y="", "", AND(y, ai, bf=100))))`,
+      // Checks if a project can advance to the 'Scheduled' stage.
       'can_advance_to_Scheduled': `=MAP(J2:J, AI2:AI, AS2:AS, L2:L, BF2:BF, LAMBDA(j, ai, as, l, bf, IF(j="", "", AND(j="Approved", ai, NOT(ISBLANK(as)), NOT(ISBLANK(l)), bf=100))))`,
+      // Checks if a project can advance to the 'Inspections' stage.
       'can_advance_to_Inspections': `=MAP(AK2:AK, AL2:AL, AM2:AM, BF2:BF, LAMBDA(ak, al, am, bf, IF(ak="", "", AND(ak, al, am, bf=100))))`,
+      // Checks if a project can advance to the 'Done' stage.
       'can_advance_to_Done': `=MAP(AN2:AN, Z2:Z, AI2:AI, BF2:BF, LAMBDA(an, z, ai, bf, IF(an="", "", AND(an, z, ai, bf=100))))`,
+      // Determines the reason a project is blocked from advancing.
+      // DEVELOPER NOTE: This formula depends on a custom function `GET_ADVANCE_BLOCK_REASON` which must be defined in the script editor.
       'Advance block reason': `=MAP(A2:A, I2:I, BG2:BG, BH2:BH, BI2:BI, BJ2:BJ, BK2:BK, LAMBDA(a, i, bg, bh, bi, bj, bk, IF(a="", "", GET_ADVANCE_BLOCK_REASON(i, bg, bh, bi, bj, bk))))`,
+      // Flags if a project has been blocked for 24 hours or more and is ready for escalation.
       'escalate_ready': `=MAP(AC2:AC, LAMBDA(ac, IF(ac="", "", AND(NOT(ISBLANK(ac)),(NOW()-ac)>=1))))`,
+      // Extracts the month (yyyy-mm) from the Deadline date (R).
       'Month (Deadline)': `=MAP(R2:R, LAMBDA(r, IF(r="", "", TEXT(r,"yyyy-mm"))))`,
+      // NOTE: This formula dynamically inserts the current month, which might not be the intended "created" month.
       'Created Month': `=MAP(A2:A, LAMBDA(a, IF(a="","",TEXT(NOW(),"yyyy-mm"))))`,
+      // Calculates the number of days a project was in the permitting phase.
       'days_in_permitting': `=MAP(S2:S, T2:T, LAMBDA(s, t, IF(OR(s="", t=""), "", s-t)))`,
+      // Calculates the number of days from permit approval to first scheduling.
       'days_to_schedule': `=MAP(S2:S, AE2:AE, LAMBDA(s, ae, IF(OR(s="", ae=""), "", ae-s)))`,
+      // Calculates the lead time in days.
       'lead_time_days': `=MAP(AF2:AF, AG2:AG, LAMBDA(af, ag, IF(OR(af="", ag=""), "", af-ag)))`,
+      // Calculates revenue weighted by probability.
       'Revenue Weighted': `=MAP(AS2:AS, L2:L, LAMBDA(as, l, IF(OR(as="", l=""), "", as*VALUE(l)/100)))`,
+      // Flags projects where permits are approved but permit artifacts are missing from Drive.
       'docs_required_but_missing': `=MAP(J2:J, AI2:AI, LAMBDA(j, ai, IF(j="", "", AND(j="Approved",NOT(ai)))))`,
+      // Calculates the number of days since the project was last edited.
       'aging_days_since_edit': `=MAP(X2:X, LAMBDA(x, IF(x="", "", IFERROR(INT((NOW()-x)),0))))`,
+      // Flags if a project is in an active backlog status.
       'is_active_backlog': `=MAP(I2:I, LAMBDA(i, IF(i="", "", OR(i="Scheduled",i="Permitting",i="Inspections"))))`,
+      // Calculates the total hours a project has been blocked.
       'blocked_hours': `=MAP(AC2:AC, LAMBDA(ac, IF(ac="", "", 24*(NOW()-ac))))`,
+      // Flags projects that have been aging for 7 days or more since the last edit.
       'staleness_flag': `=MAP(BV2:BV, LAMBDA(bv, IF(bv="", "", bv>=7)))`
     },
     'Tasks': {
+      // Determines if a task should count towards project completion. 'Waiting External' and 'Skipped' tasks are excluded.
       'Counts toward completion': `=MAP(D2:D, LAMBDA(d, IF(d="", "", IF(OR(d="Waiting External",d="Skipped"),0,1))))`,
+      // Sets task completion to 100% if status is 'Done', otherwise 0%.
       'Completed %': `=MAP(D2:D, LAMBDA(d, IF(d="", "", IF(d="Done",100,0))))`
     }
   },
 
   STATIC_FORMULAS: {
     'Upcoming': {
+      // Queries the 'Project Pipeline' for projects with 'Approved' permits, ordered by deadline.
       'A1': `=QUERY('Project Pipeline'!A:BY, "select A,B,R,I,AA,AR,J,AQ where J = 'Approved' order by R asc", 1)`
     },
     'Framing': {
+      // Queries the 'Project Pipeline' for projects in the 'Permitting' stage, ordered by deadline.
       'A1': `=QUERY('Project Pipeline'!A:BY, "select A,B,R,AR,AQ where I = 'Permitting' order by R asc", 1)`
     },
     'Dashboard': {
+        // --- Dashboard KPIs ---
         'A1': 'Active Backlog',
+        // Counts projects currently in an active backlog status.
         'B1': `=COUNTIF('Project Pipeline'!BW:BW,TRUE)`,
         'A2': 'Blocked Projects',
+        // Counts projects that are currently blocked.
         'B2': `=COUNTIF('Project Pipeline'!AC:AC,">0")`,
         'A3': 'Oldest Blocked Hours',
+        // Shows the maximum number of hours any project has been blocked.
         'B3': `=IFERROR(MAX('Project Pipeline'!BX:BX),0)`,
         'A4': 'Upcoming (7d)',
+        // Counts projects with 'Approved' permits scheduled within the next 7 days.
         'B4': `=COUNTIFS('Project Pipeline'!J:J,"Approved",'Project Pipeline'!R:R,">="&TODAY(),'Project Pipeline'!R:R,"<="&TODAY()+7)`,
         'A5': 'Upcoming Revenue (7d)',
+        // Sums the weighted revenue for projects scheduled in the next 7 days.
         'B5': `=SUMIFS('Project Pipeline'!BT:BT,'Project Pipeline'!J:J,"Approved",'Project Pipeline'!R:R,">="&TODAY(),'Project Pipeline'!R:R,"<="&TODAY()+7)`,
         'A6': 'Framing (7d)',
+        // Counts projects in 'Permitting' stage with a deadline in the next 7 days.
         'B6': `=COUNTIFS('Project Pipeline'!I:I,"Permitting",'Project Pipeline'!R:R,">="&TODAY(),'Project Pipeline'!R:R,"<="&TODAY()+7)`,
         'A7': 'Overdue Tasks',
+        // Counts all tasks that are not done and have a due date in the past.
         'B7': `=COUNTIFS(Tasks!D:D,"<>Done",Tasks!G:G,"<"&TODAY())`,
         'A8': 'Docs Required but Missing',
+        // Counts projects with 'Approved' permits that are missing necessary documents in Drive.
         'B8': `=COUNTIFS('Project Pipeline'!J:J,"Approved",'Project Pipeline'!AI:AI,FALSE)`,
         'A9': 'Duplicate SFIDs',
+        // Counts projects with a duplicate Salesforce ID.
         'B9': `=COUNTIF('Project Pipeline'!AO:AO,TRUE)`,
         'A10': 'Wins This Week',
-        'B10': `=COUNTIFS('Project Pipeline'!P:P,"Salesforce",'Project Pipeline'!BP:BP,TEXT(TODAY(),"yyyy-mm"))`,
+        // CORRECTED LOGIC: Counts projects from 'Salesforce' with an opportunity close date in the current week (Mon-Sun).
+        'B10': `=COUNTIFS('Project Pipeline'!P:P,"Salesforce",'Project Pipeline'!AG:AG,">="&TODAY()-WEEKDAY(TODAY(),2)+1,'Project Pipeline'!AG:AG,"<"&TODAY()-WEEKDAY(TODAY(),2)+8)`,
         'A11': 'Forecast (This Month)',
+        // Sums the weighted revenue for projects forecasted to close this month.
         'B11': `=SUMIFS('Project Pipeline'!BT:BT,'Project Pipeline'!BO:BO,TEXT(TODAY(),"yyyy-mm"))`,
         'A12': 'Forecast (Next Month)',
+        // Sums the weighted revenue for projects forecasted to close next month.
         'B12': `=SUMIFS('Project Pipeline'!BT:BT,'Project Pipeline'!BO:BO,TEXT(EDATE(TODAY(),1),"yyyy-mm"))`,
+
+        // --- Dashboard Reports ---
         'D1': 'Forecast by Month',
+        // Creates a summary of total revenue and weighted revenue grouped by month.
         'D2': `=QUERY('Project Pipeline'!A:BY, "select BO, sum(AS), sum(BT) where BO is not null group by BO order by BO", 1)`,
         'D5': 'Permit Pipeline Status',
+        // Counts projects by their permit status.
         'D6': `=QUERY('Project Pipeline'!A:BY, "select J, count(A) where J is not null group by J label count(A) 'Count'", 1)`,
         'D10': 'Avg Days in Permitting',
+        // Calculates the average number of days projects spend in permitting.
         'D11': `=QUERY('Project Pipeline'!A:BY, "select avg(BQ) where BQ is not null label avg(BQ) 'Avg days in permitting'", 1)`,
         'F1': 'Ready to Schedule',
+        // Lists projects ready to be scheduled (Permit Approved, Docs Ready, Tasks 100% complete, Revenue & Probability filled).
         'F2': `=QUERY('Project Pipeline'!A:BY, "select A,B,AI,AS,L,BF where I='Permitting' and J='Approved' and AI = TRUE and BF = 100 and AS is not null and L is not null order by R asc", 1)`,
         'H1': 'Not Ready (Fix These)',
+        // Lists projects in 'Permitting' with 'Approved' permits that are not ready to be scheduled, highlighting the issues.
         'H2': `=QUERY('Project Pipeline'!A:BY, "select A,B,AI,AS,L,BF where I='Permitting' and J='Approved' and (AI = FALSE or BF < 100 or AS is null or L is null) order by R asc", 1)`,
         'J1': 'Execution Watchlist',
+        // Lists projects that are in the active backlog or are currently blocked, ordered by urgency.
         'J2': `=QUERY('Project Pipeline'!A:BY, "select A,B,BL,BV,BB,Q,H where (BW = TRUE or AC is not null) order by AC desc, R asc", 1)`
     }
   }
