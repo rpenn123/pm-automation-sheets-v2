@@ -36,6 +36,7 @@ const CFG = {
     OPS_INBOX: 'Ops Inbox',
     DASHBOARD: 'Dashboard',
     LISTS: 'Lists',
+    SETTINGS: 'Settings',
   },
 
   /**
@@ -67,6 +68,7 @@ function onOpen(e) {
     .addItem('Verify & Setup Sheet', 'runFullSetup')
     .addSeparator()
     .addItem('Configure Admins', 'showAdminConfigUi')
+    .addItem('Manually Update Timestamp', 'updateTimestamp')
     .addToUi();
 }
 
@@ -150,7 +152,8 @@ function runFullSetup() {
 function createSheets_(ss, report) {
   const requiredSheets = [
       CFG.SHEETS.PIPELINE, CFG.SHEETS.TASKS, CFG.SHEETS.OPS_INBOX,
-      CFG.SHEETS.UPCOMING, CFG.SHEETS.FRAMING, CFG.SHEETS.DASHBOARD, CFG.SHEETS.LISTS
+      CFG.SHEETS.UPCOMING, CFG.SHEETS.FRAMING, CFG.SHEETS.DASHBOARD, CFG.SHEETS.LISTS,
+      CFG.SHEETS.SETTINGS
   ];
   const existingSheets = ss.getSheets().map(s => s.getName());
   let created = [];
@@ -215,6 +218,20 @@ function setupSheetContents_(ss, report) {
             report.push(`✅ Applied static formulas to '${sheetName}'.`);
         }
     }
+
+    // --- Special Setup for Settings Sheet ---
+    const settingsSheet = ss.getSheetByName(CFG.SHEETS.SETTINGS);
+    if (settingsSheet && settingsSheet.getLastRow() === 1) { // Only populate if it's a fresh sheet
+        const settingsData = [
+            ['Current Time', new Date(), 'Automatically updated timestamp used by formulas to avoid volatile functions like NOW() and TODAY(). Updated by a time-based trigger.'],
+            ['Upcoming Days Threshold', 7, 'Number of days to look ahead for "upcoming" items on the dashboard.'],
+            ['Staleness Days Threshold', 7, 'Number of days without an edit before a project is flagged as stale.']
+        ];
+        settingsSheet.getRange(2, 1, 3, 3).setValues(settingsData);
+        settingsSheet.getRange('B2').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+        settingsSheet.getRange('C:C').setWrap(true);
+        report.push(`✅ Populated initial data in '${CFG.SHEETS.SETTINGS}'.`);
+    }
 }
 
 /**
@@ -224,6 +241,8 @@ function setupSheetContents_(ss, report) {
  */
 function installTrigger_(report) {
   const triggers = ScriptApp.getProjectTriggers();
+
+  // Check for onEdit trigger
   const hasOnEditTrigger = triggers.some(t =>
     t.getEventType() === ScriptApp.EventType.ON_EDIT &&
     t.getHandlerFunction() === 'onEditHandler'
@@ -237,6 +256,73 @@ function installTrigger_(report) {
     report.push('✅ Installed the required onEdit trigger.');
   } else {
     report.push('✅ The onEdit trigger is correctly installed.');
+  }
+
+  // Check for time-based trigger for updateTimestamp
+  const hasTimeTrigger = triggers.some(t =>
+    t.getEventType() === ScriptApp.EventType.CLOCK &&
+    t.getHandlerFunction() === 'updateTimestamp'
+  );
+
+  if (!hasTimeTrigger) {
+    ScriptApp.newTrigger('updateTimestamp')
+      .timeBased()
+      .everyMinutes(1)
+      .create();
+    report.push('✅ Installed time-based trigger for timestamp updates.');
+  } else {
+    report.push('✅ The time-based trigger is correctly installed.');
+  }
+}
+
+// --- Time-based Trigger Functions --- //
+
+/**
+ * Updates the 'Current Time' value in the 'Settings' sheet.
+ * This function is designed to be run on a time-based trigger (e.g., every minute)
+ * to provide a non-volatile timestamp for formulas, improving sheet performance.
+ *
+ * To set up the trigger:
+ * 1. Open the Apps Script editor.
+ * 2. Go to Edit > Current project's triggers.
+ * 3. Click "+ Add Trigger".
+ * 4. Choose function to run: "updateTimestamp".
+ * 5. Choose which deployment should run: "Head".
+ * 6. Select event source: "Time-driven".
+ * 7. Select type of time-based trigger: "Minutes timer".
+ * 8. Select minute interval: "Every minute".
+ * 9. Click "Save".
+ */
+function updateTimestamp() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const settingsSheet = ss.getSheetByName(CFG.SHEETS.SETTINGS);
+    if (!settingsSheet) {
+      // Log to Ops Inbox if settings sheet is missing
+      logOpsInbox_('script_error', '', `Critical Error: The '${CFG.SHEETS.SETTINGS}' sheet is missing. Cannot update timestamp.`);
+      return;
+    }
+
+    // Find the 'Current Time' setting row. This is more robust than hardcoding a cell.
+    const settingNames = settingsSheet.getRange('A2:A').getValues().flat();
+    const rowIndex = settingNames.indexOf('Current Time');
+
+    if (rowIndex === -1) {
+      // Log to Ops Inbox if the setting is missing
+      logOpsInbox_('script_error', '', `Critical Error: 'Current Time' setting not found in '${CFG.SHEETS.SETTINGS}' sheet.`);
+      return;
+    }
+
+    // Update the timestamp in column B of the found row (A is 1-based, rowIndex is 0-based, so row is rowIndex + 2)
+    const targetCell = settingsSheet.getRange(rowIndex + 2, 2);
+    targetCell.setValue(new Date());
+
+  } catch (e) {
+    // Log any unexpected errors to the Ops Inbox for review.
+    const errorMessage = `Error in updateTimestamp: ${e.message}. Stack: ${e.stack}`;
+    logOpsInbox_('script_error', '', errorMessage);
+    // Also log to the console for immediate debugging.
+    console.error(errorMessage);
   }
 }
 
