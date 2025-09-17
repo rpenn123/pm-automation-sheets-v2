@@ -602,6 +602,9 @@ function logOpsInbox_(type, sfid, details) {
     };
     const row = headers.map(h => rowData[h] || '');
     sh.appendRow(row);
+
+    // After logging to the sheet, send an email notification.
+    sendErrorNotification_(type, sfid, details);
   } catch(err) {
     // Fallback to console logging if writing to the sheet fails.
     console.error(`Failed to write to Ops Inbox. Type: ${type}, SFID: ${sfid}, Details: ${details}. Error: ${err.message}`);
@@ -628,6 +631,49 @@ function GET_ADVANCE_BLOCK_REASON(status, canGlobal, canPerm, canSched, canInspe
   if (status === 'Inspections' && !toBool_(canInspect)) reasons.push('Gate to Inspections not met');
   if (status === 'Done' && !toBool_(canDone)) reasons.push('Gate to Done not met');
   return reasons.join(' • ');
+}
+
+// --- Notification Functions --- //
+
+/**
+ * Sends an email notification to admins when an error is logged.
+ * @param {string} type The type of error.
+ * @param {string} sfid The SFID related to the error.
+ * @param {string} details The detailed error message.
+ * @private
+ */
+function sendErrorNotification_(type, sfid, details) {
+  try {
+    const admins = getAdmins_();
+    if (!admins || admins.length === 0) {
+      console.error("Cannot send error notification: No admin emails are configured.");
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const subject = `[Error] PM Automations Script: ${type}`;
+    const body = `
+      An error was logged in the Project Management Automations spreadsheet.
+
+      Sheet Name: ${ss.getName()}
+      Sheet URL: ${ss.getUrl()}
+
+      Error Details:
+      - Type: ${type}
+      - Related SFID: ${sfid || 'N/A'}
+      - Timestamp: ${new Date().toUTCString()}
+      - Full Details: ${details}
+
+      Please review the 'Ops Inbox' sheet for more information.
+    `;
+
+    MailApp.sendEmail(admins.join(','), subject, body.trim());
+
+  } catch (e) {
+    // Log a failure to send the email itself to the console.
+    // We don't want to trigger another error log and create a loop.
+    console.error(`Failed to send error notification email. Error: ${e.message}`);
+  }
 }
 
 // --- Utility Functions --- //
