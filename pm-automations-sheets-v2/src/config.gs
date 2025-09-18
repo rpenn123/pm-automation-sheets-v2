@@ -79,12 +79,12 @@ const SHEET_SETUP_CONFIG = {
       'task_progress_%': `=MAP(BD2:BD, BE2:BE, LAMBDA(total, completed, IF(total="", "", IF(total=0, 0, ROUND(100*completed/total)))))`,
       // Checks if a project can be advanced globally. Requires a deadline (R), Slack channel (C), no blocking tasks (BB), and not being overridden (AO).
       'can_advance_globally': `=MAP(R2:R, C2:C, BB2:BB, AO2:AO, LAMBDA(r, c, bb, ao, IF(r="", "", AND(NOT(ISBLANK(r)),NOT(ISBLANK(c)),bb=0,NOT(ao)))))`,
-      // Checks if a project can advance to the 'Permitting' stage.
-      'can_advance_to_Permitting': `=MAP(Y2:Y, AI2:AI, BF2:BF, LAMBDA(y, ai, bf, IF(y="", "", AND(y, ai, bf=100))))`,
-      // Checks if a project can advance to the 'Scheduled' stage.
-      'can_advance_to_Scheduled': `=MAP(J2:J, AI2:AI, AS2:AS, L2:L, BF2:BF, LAMBDA(j, ai, as, l, bf, IF(j="", "", AND(j="Approved", ai, NOT(ISBLANK(as)), NOT(ISBLANK(l)), bf=100))))`,
-      // Checks if a project can advance to the 'Inspections' stage.
-      'can_advance_to_Inspections': `=MAP(AK2:AK, AL2:AL, AM2:AM, BF2:BF, LAMBDA(ak, al, am, bf, IF(ak="", "", AND(ak, al, am, bf=100))))`,
+      // Checks if a project can advance to the 'Permitting' stage. Requires Deposit Received (Y).
+      'can_advance_to_Permitting': `=MAP(Y2:Y, LAMBDA(y, IF(y="", "", y)))`,
+      // Checks if a project can advance to the 'Scheduled' stage. Requires Permit Approved (J), Docs in Drive (AI), Revenue (AS), and Probability (L).
+      'can_advance_to_Scheduled': `=MAP(J2:J, AI2:AI, AS2:AS, L2:L, LAMBDA(j, ai, as, l, IF(j="", "", AND(j="Approved", ai, NOT(ISBLANK(as)), NOT(ISBLANK(l))))))`,
+      // Checks if a project can advance to the 'Inspections' stage. Requires Equipment Received (AK), Site Prep Complete (AL), and Rough Inspections Passed (AM).
+      'can_advance_to_Inspections': `=MAP(AK2:AK, AL2:AL, AM2:AM, LAMBDA(ak, al, am, IF(ak="", "", AND(ak, al, am))))`,
       // Checks if a project can advance to the 'Done' stage.
       'can_advance_to_Done': `=MAP(AN2:AN, Z2:Z, AI2:AI, BF2:BF, LAMBDA(an, z, ai, bf, IF(an="", "", AND(an, z, ai, bf=100))))`,
       // Determines the reason a project is blocked from advancing.
