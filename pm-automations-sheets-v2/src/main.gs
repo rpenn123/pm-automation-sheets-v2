@@ -125,7 +125,8 @@ function runFullSetup() {
     // Execute setup steps
     createSheets_(ss, report);
     setupSheetContents_(ss, report);
-    setupDataValidation_(ss, report); // New function call
+    setupDataValidation_(ss, report);
+    setupExampleData_(ss, report); // New function call
     installTrigger_(report);
 
     report.push('\n✅✅✅ Setup Complete! ✅✅✅');
@@ -303,6 +304,52 @@ function setupDataValidation_(ss, report) {
             }
         }
         report.push(`✅ Applied dropdowns to '${sheetName}'.`);
+    }
+}
+
+/**
+ * Populates the 'Project Pipeline' sheet with example data if it's empty.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
+ * @param {string[]} report An array to log setup actions for the user.
+ * @private
+ */
+function setupExampleData_(ss, report) {
+    const pipelineSheet = ss.getSheetByName(CFG.SHEETS.PIPELINE);
+    if (!pipelineSheet) {
+        report.push(`⚠️ Could not find sheet: ${CFG.SHEETS.PIPELINE}. Skipping example data setup.`);
+        return;
+    }
+
+    // Only add example data if the sheet is empty (only has a header row)
+    if (pipelineSheet.getLastRow() > 1) {
+        report.push(`ℹ️ '${CFG.SHEETS.PIPELINE}' already has data. Skipping example data setup.`);
+        return;
+    }
+
+    const exampleData = SHEET_SETUP_CONFIG.EXAMPLE_PIPELINE_DATA;
+    if (!exampleData || exampleData.length === 0) {
+        report.push(`ℹ️ No example data defined in config. Skipping.`);
+        return;
+    }
+
+    const headerMap = getHeaderMap_(pipelineSheet);
+    const headers = pipelineSheet.getRange(1, 1, 1, pipelineSheet.getLastColumn()).getValues()[0];
+
+    // Map the object data to a 2D array in the correct column order
+    const rowsToAdd = exampleData.map(rowDataObject => {
+        const rowArray = new Array(headers.length).fill('');
+        for (const header in rowDataObject) {
+            const colIndex = headerMap[header];
+            if (colIndex) {
+                rowArray[colIndex - 1] = rowDataObject[header];
+            }
+        }
+        return rowArray;
+    });
+
+    if (rowsToAdd.length > 0) {
+        pipelineSheet.getRange(2, 1, rowsToAdd.length, headers.length).setValues(rowsToAdd);
+        report.push(`✅ Added ${rowsToAdd.length} example rows to '${CFG.SHEETS.PIPELINE}'.`);
     }
 }
 
