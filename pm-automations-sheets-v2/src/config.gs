@@ -189,5 +189,97 @@ const SHEET_SETUP_CONFIG = {
         // Lists projects that are in the active backlog or are currently blocked, ordered by urgency.
         'J2': `=QUERY('Project Pipeline'!A:BY, "select A,B,BL,BV,BB,Q,H where (BW = TRUE or AC is not null) order by AC desc, R asc", 1)`
     }
-  }
+  },
+
+  /**
+   * Defines the data to be populated into the 'Lists' sheet.
+   * Each key is a header, and the value is an array of items for that list.
+   * These lists will be used to create named ranges for data validation.
+   */
+  LIST_SHEET_DATA: {
+    'Project Status': ['Backlog', 'Permitting', 'Scheduled', 'Inspections', 'Done', 'On Hold', 'Canceled'],
+    'Permits': ['Not Started', 'Submitted', 'Revisions Required', 'Approved', 'Rejected'],
+    'Priority': ['High', 'Medium', 'Low'],
+    'Probability': ['10%', '25%', '50%', '75%', '90%', '100%'],
+    'Source': ['Salesforce', 'Internal', 'Referral'],
+    'Task Status': ['Not Started', 'In Progress', 'Done', 'Skipped', 'Waiting External'],
+    'Task Type': ['Milestone', 'Action Item', 'Deliverable', 'Meeting'],
+    'Phase': ['Planning', 'Execution', 'Closeout']
+  },
+
+  /**
+   * Defines the data validation rules (dropdowns) to be applied.
+   * The key is the sheet name. The value is an object where each key is a
+   * column header and the value is the named range for its validation list.
+   */
+  DATA_VALIDATION_RULES: {
+    'Project Pipeline': {
+      'Project Status': 'List_ProjectStatus',
+      'Permits': 'List_Permits',
+      'Priority': 'List_Priority',
+      'Probability': 'List_Probability',
+      'Source': 'List_Source'
+    },
+    'Tasks': {
+      'Phase': 'List_Phase',
+      'Status': 'List_TaskStatus',
+      'Type': 'List_TaskType'
+    }
+  },
+
+  /**
+   * Defines example data to be populated into the 'Project Pipeline' sheet.
+   * Each object in the array represents a row. Keys must match the headers.
+   * This data is only added during the first-time setup of a blank sheet.
+   */
+  EXAMPLE_PIPELINE_DATA: [
+    {
+      'Name': 'Project Alpha - Downtown Tower',
+      'SFID': 'SF001',
+      'Project Status': 'Permitting',
+      'Permits': 'Submitted',
+      'Priority': 'High',
+      'Probability': '75%',
+      'Source': 'Salesforce',
+      'Assigned to': 'alex@example.com',
+      'Deadline': '2025-10-15',
+      'Revenue': 50000,
+      'COGS': 20000
+    },
+    {
+      'Name': 'Project Bravo - Suburban Complex',
+      'SFID': 'SF002',
+      'Project Status': 'Scheduled',
+      'Permits': 'Approved',
+      'Priority': 'Medium',
+      'Probability': '90%',
+      'Source': 'Referral',
+      'Assigned to': 'casey@example.com',
+      'Deadline': '2025-11-20',
+      'Deposit received': true,
+      'Permit application submitted': true,
+      'Permit artifacts in Drive': true,
+      'Revenue': 120000,
+      'COGS': 65000
+    },
+    {
+      'Name': 'Project Charlie - Industrial Park',
+      'SFID': 'SF003',
+      'Project Status': 'Inspections',
+      'Permits': 'Approved',
+      'Priority': 'High',
+      'Probability': '100%',
+      'Source': 'Internal',
+      'Assigned to': 'jordan@example.com',
+      'Deadline': '2025-09-30',
+      'Deposit received': true,
+      'Permit application submitted': true,
+      'Permit artifacts in Drive': true,
+      'Change orders approved': true,
+      'Equipment received in warehouse': true,
+      'Site prep checklist complete': true,
+      'Revenue': 250000,
+      'COGS': 150000
+    }
+  ]
 };
