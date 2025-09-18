@@ -189,5 +189,41 @@ const SHEET_SETUP_CONFIG = {
         // Lists projects that are in the active backlog or are currently blocked, ordered by urgency.
         'J2': `=QUERY('Project Pipeline'!A:BY, "select A,B,BL,BV,BB,Q,H where (BW = TRUE or AC is not null) order by AC desc, R asc", 1)`
     }
+  },
+
+  /**
+   * Defines the data to be populated into the 'Lists' sheet.
+   * Each key is a header, and the value is an array of items for that list.
+   * These lists will be used to create named ranges for data validation.
+   */
+  LIST_SHEET_DATA: {
+    'Project Status': ['Backlog', 'Permitting', 'Scheduled', 'Inspections', 'Done', 'On Hold', 'Canceled'],
+    'Permits': ['Not Started', 'Submitted', 'Revisions Required', 'Approved', 'Rejected'],
+    'Priority': ['High', 'Medium', 'Low'],
+    'Probability': ['10%', '25%', '50%', '75%', '90%', '100%'],
+    'Source': ['Salesforce', 'Internal', 'Referral'],
+    'Task Status': ['Not Started', 'In Progress', 'Done', 'Skipped', 'Waiting External'],
+    'Task Type': ['Milestone', 'Action Item', 'Deliverable', 'Meeting'],
+    'Phase': ['Planning', 'Execution', 'Closeout']
+  },
+
+  /**
+   * Defines the data validation rules (dropdowns) to be applied.
+   * The key is the sheet name. The value is an object where each key is a
+   * column header and the value is the named range for its validation list.
+   */
+  DATA_VALIDATION_RULES: {
+    'Project Pipeline': {
+      'Project Status': 'List_ProjectStatus',
+      'Permits': 'List_Permits',
+      'Priority': 'List_Priority',
+      'Probability': 'List_Probability',
+      'Source': 'List_Source'
+    },
+    'Tasks': {
+      'Phase': 'List_Phase',
+      'Status': 'List_TaskStatus',
+      'Type': 'List_TaskType'
+    }
   }
 };

@@ -125,13 +125,13 @@ function runFullSetup() {
     // Execute setup steps
     createSheets_(ss, report);
     setupSheetContents_(ss, report);
+    setupDataValidation_(ss, report); // New function call
     installTrigger_(report);
 
     report.push('\n✅✅✅ Setup Complete! ✅✅✅');
     report.push('\nNext Steps:');
-    report.push('1. Populate the `Lists` sheet with your dropdown options.');
-    report.push('2. Use "Data -> Named ranges" and "Data -> Data validation" to hook up the dropdowns.');
-    report.push('3. Use the "Configure Admins" menu to set who can use the override feature.');
+    report.push('1. Review the `Lists` sheet to customize dropdown options.');
+    report.push('2. Use the "Configure Admins" menu to set who can use the override feature.');
 
   } catch (e) {
     // Log any errors that occur during setup for easier debugging.
@@ -231,6 +231,78 @@ function setupSheetContents_(ss, report) {
         settingsSheet.getRange('B2').setNumberFormat('yyyy-mm-dd hh:mm:ss');
         settingsSheet.getRange('C:C').setWrap(true);
         report.push(`✅ Populated initial data in '${CFG.SHEETS.SETTINGS}'.`);
+    }
+}
+
+/**
+ * Sets up data validation rules (dropdowns) for the sheets.
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss The active spreadsheet.
+ * @param {string[]} report An array to log setup actions for the user.
+ * @private
+ */
+function setupDataValidation_(ss, report) {
+    const listSheet = ss.getSheetByName(CFG.SHEETS.LISTS);
+    if (!listSheet) {
+        report.push(`⚠️ Could not find sheet: ${CFG.SHEETS.LISTS}. Skipping dropdown setup.`);
+        return;
+    }
+
+    // --- 1. Populate Lists Sheet with Default Data ---
+    if (listSheet.getLastRow() < 2) { // Only populate if it seems empty
+        const listData = SHEET_SETUP_CONFIG.LIST_SHEET_DATA;
+        const headers = Object.keys(listData);
+        listSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+
+        headers.forEach((header, colIndex) => {
+            const values = listData[header].map(v => [v]); // Convert to 2D array
+            if (values.length > 0) {
+                listSheet.getRange(2, colIndex + 1, values.length, 1).setValues(values);
+            }
+        });
+        report.push(`✅ Populated default options in '${CFG.SHEETS.LISTS}'.`);
+    }
+
+    // --- 2. Create Named Ranges from Lists Sheet ---
+    const listHeaders = listSheet.getRange(1, 1, 1, listSheet.getLastColumn()).getValues()[0];
+    listHeaders.forEach((header, colIndex) => {
+        if (!header) return;
+        const lastRow = listSheet.getLastRow();
+        const range = listSheet.getRange(2, colIndex + 1, lastRow -1);
+        const namedRangeName = `List_${header.replace(/ /g, '')}`;
+        ss.setNamedRange(namedRangeName, range);
+    });
+    report.push(`✅ Created named ranges for all lists.`);
+
+
+    // --- 3. Apply Data Validation Rules ---
+    const rules = SHEET_SETUP_CONFIG.DATA_VALIDATION_RULES;
+    for (const sheetName in rules) {
+        const sh = ss.getSheetByName(sheetName);
+        if (!sh) {
+            report.push(`⚠️ Could not find sheet '${sheetName}' to apply dropdowns.`);
+            continue;
+        }
+
+        const headerMap = getHeaderMap_(sh);
+        const sheetRules = rules[sheetName];
+
+        for (const header in sheetRules) {
+            const col = headerMap[header];
+            const namedRangeName = sheetRules[header];
+            const namedRange = ss.getRangeByName(namedRangeName);
+
+            if (col && namedRange) {
+                const rule = SpreadsheetApp.newDataValidation()
+                    .requireValueInRange(namedRange)
+                    .setAllowInvalid(false) // Disallow values not in the list
+                    .setHelpText(`Select a valid ${header}.`)
+                    .build();
+                sh.getRange(2, col, sh.getMaxRows() - 1, 1).setDataValidation(rule);
+            } else {
+                report.push(`⚠️ Could not apply dropdown for '${header}' in '${sheetName}'. Column or Named Range missing.`);
+            }
+        }
+        report.push(`✅ Applied dropdowns to '${sheetName}'.`);
     }
 }
 
